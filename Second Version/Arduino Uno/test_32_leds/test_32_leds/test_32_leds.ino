@@ -1,18 +1,25 @@
 //
-// - start up (X)
-// -- leds shows and start
+// - start up (V)
+// -- leds shows and start (V)
 //
 // - game (succeed (V), , keeping score (V), )
 // - failed(X):
 // - - random place, random direction, 1 second penalty 
 //
 // - end of game (X):
-// - - lights towards winner
+// - - lights towards winner (V)
 //
 //
 // - session(?) 
 //buzzer implemenation
+//check for bugs (click any time - does it work)
 //change to interupt (V)
+//
+//check pcb or make new one + order parts
+//3d print the model
+//
+//bgus:
+//when leave button also count as press (maybe not fixable)
 
 #define pinSer 5
 #define pinLatch 6
@@ -25,16 +32,25 @@
 #define playerBLed 0x00040000 //blue leds
 
 uint32_t digit = 256; //turn on one led.    //32 bits from left to right the bits of the game, the right most 6 bits are the score
+uint32_t digitStartShow = 0xAAAAAAAA;
+uint32_t digitwinningShowUp = 0x00001000;
+uint32_t digitwinningShowDown = 0x01000000;
+
 uint32_t playerAscore = 0x00000000;
 uint32_t playerBscore = 0x00000000;
 uint32_t gameSpeed = 100; //milis between each led 
-
+uint32_t startupShowSpeed = 300;
+uint32_t winningShowSpeed = 100;
 long AlastTimePressed = millis();
+long BlastTimePressed = millis();
 uint32_t debounceTime = 10; // in miliseconds  
 // bool Bpressable = true;
 
 bool Aplayed = false;
+bool Bplayed = false;
+
 bool sessionWonA = false;
+bool sessionWonB = false;
 
 
 
@@ -49,14 +65,17 @@ void setup() {
   
   Serial.begin(9600);
   attachInterrupt(digitalPinToInterrupt(pinSwitchA), switchAPressed, FALLING);
-  // attachInterrupt(digitalPinToInterrupt(pinSwitchB), switchBPressed, FALLING);
+  attachInterrupt(digitalPinToInterrupt(pinSwitchB), switchBPressed, FALLING);
    
+  restartGame();
+  // winningShow(playerALed);
+  
 }
 
 void loop() {
  
   
-
+  
   //~~~led running~~~
   
    digit = ((digit << 1) | (digit >> 25)) & 0xFFFFFFC0; // 32 - 6 - 1 = 31 (from Q8 to Q0) 
@@ -78,20 +97,16 @@ void loop() {
     
     Aplayed=false;
   }
-  // if(digitalRead(pinSwitchA)==LOW)
-  //   {
-      
-  //     if (digit == playerALed)
-  //         AddScore(true);
-  //     // else
-  //       //  statement;
-  //   }
-  // if(digitalRead(pinSwitchB)==LOW)
-  //   {
-      
-  //     if (digit == playerBLed)
-  //         AddScore(false);
-  //   }
+
+  if(Bplayed)
+  {
+    if (sessionWonB)
+      AddScore(false);
+    else
+      lowerScore(false);
+    
+    Bplayed=false;
+  }
 
 }
 
@@ -120,6 +135,11 @@ void AddScore(bool isPlayerA)
       delay(500);
     }
     playerAscore = playerAscoreNew;
+    if(playerAscore==0x00000007)
+    {
+      winningShow(playerALed);
+      restartGame(); 
+    }
   }
   else {
     uint32_t playerBscoreNew = ((playerBscore >> 1) | 0x00000020) & 0x00000038; 
@@ -130,6 +150,11 @@ void AddScore(bool isPlayerA)
       delay(500);
     }
     playerBscore = playerBscoreNew;
+    if(playerBscore==0x00000038)
+    {
+      winningShow(playerBLed);
+      restartGame(); 
+    }
   }
 }
 void lowerScore(bool isPlayerA)
@@ -161,12 +186,25 @@ if(isPlayerA)
     playerAscore = playerAscoreNew;
   }
   else {
-    uint32_t playerBscoreNew = ((playerBscore >> 1) | 0x00000020) & 0x00000038; 
+    uint32_t playerBscoreNew = (playerBscore << 1) & 0x00000038; 
     for (int i = 0; i < 3; i++) {
-      updateLeds(digit | playerBscoreNew | playerAscore);
-      delay(500);
-      updateLeds(digit | playerBscore | playerAscore);
-      delay(500);
+      if (i==2)
+        updateLeds(digit | playerAscore | playerBscoreNew);
+      else
+        updateLeds(digit | playerAscore | playerBscore);
+      delay(250);
+
+      updateLeds(playerAscore | playerBscoreNew);
+      delay(250);
+
+      if (i==2)
+        updateLeds(digit | playerAscore | playerBscoreNew);
+      else
+        updateLeds(digit | playerAscore | playerBscore);
+      delay(250);
+
+      updateLeds(playerAscore | playerBscoreNew);
+      delay(250);
     }
     playerBscore = playerBscoreNew;
   }
@@ -181,27 +219,107 @@ void switchAPressed()
     Serial.print("A_");
     if (digit == playerALed)
     { 
-      Serial.println("Won");
+      Serial.println("A Won");
       sessionWonA = true;
     }
     else 
     {
-     Serial.println("Lost");
+     Serial.println("A Lost");
      sessionWonA = false;
     }
   }
 }
-// void switchBPressed()
-// {
-//   Serial.print("B");
-//   if (digit == playerBLed)
-//   {
-        
-//         AddScore(false);
-//   }
-// }
 
-  
+void switchBPressed()
+{
+  if(BlastTimePressed + debounceTime < millis())
+  {
+    BlastTimePressed = millis();
+    Bplayed=true;
+    Serial.print("B_");
+    if (digit == playerBLed)
+    { 
+      Serial.println("B Won");
+      sessionWonB = true;
+    }
+    else 
+    {
+     Serial.println("B Lost");
+     sessionWonB = false;
+    }
+  }
+}
+
+void startupShow()
+{
+  updateLeds(0x00000000);
+  delay(500);
+
+   for (int i=0; i<6; i++) {
+
+      updateLeds(0x00000000); //clean because otherwise some leds magicly turn on
+      updateLeds(digitStartShow);
+      delay(startupShowSpeed);
+
+      updateLeds(0x00000000); //clean because otherwise some leds magicly turn on
+      updateLeds(~digitStartShow);
+      delay(startupShowSpeed);
+   }
+}  
+
+void winningShow(uint32_t WinningPlayerLed)
+{
+  updateLeds(0x00000000);
+  delay(500);
+
+
+  updateLeds(0x00000000);
+  for (int j=0; j<10; j++) {
+
+    if (WinningPlayerLed==playerBLed)
+    {
+     digitwinningShowUp = 0x00001000;
+     digitwinningShowDown = 0x01000000;
+    }
+    else {
+      digitwinningShowUp = 0x00000800;
+      digitwinningShowDown = 0x02000000;
+    }
+
+      for (int i=0; i<6; i++) {
+        updateLeds(0x00000000);//clean because otherwise some leds magicly turn on
+        updateLeds((digitwinningShowUp | digitwinningShowDown) & ~WinningPlayerLed);
+        delay(winningShowSpeed);
+        if(WinningPlayerLed==playerBLed)
+        {
+        digitwinningShowUp = digitwinningShowUp | (digitwinningShowUp<<1);
+        digitwinningShowDown = digitwinningShowDown | (digitwinningShowDown>>1);
+        }
+        else {
+        digitwinningShowUp = digitwinningShowUp | (digitwinningShowUp>>1);
+        digitwinningShowDown = digitwinningShowDown | (digitwinningShowDown<<1);
+        }
+      }
+      // updateLeds(0x00000000);//clean because otherwise some leds magicly turn on
+      updateLeds(WinningPlayerLed);
+      delay(winningShowSpeed);
+      winningShowSpeed-=8;
+  }
+  for (int i=0; i<8; i++) {
+    delay(100);
+    updateLeds(WinningPlayerLed);
+    delay(100);
+    updateLeds(0x00000000);
+  }
+}
+
+void restartGame()
+{
+  digit = 256; //we need to choose random
+  playerAscore = 0x00000000;
+  playerBscore = 0x00000000;
+  startupShow();
+}
 
 
 
