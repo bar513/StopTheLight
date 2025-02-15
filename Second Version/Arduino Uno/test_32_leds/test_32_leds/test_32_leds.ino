@@ -32,6 +32,7 @@
 #define playerBLed 0x00040000 //blue leds
 
 uint32_t digit = 256; //turn on one led.    //32 bits from left to right the bits of the game, the right most 6 bits are the score
+bool digitDirection = true; //True - clockwise, Flase - counter clockwise
 uint32_t digitStartShow = 0xAAAAAAAA;
 uint32_t digitwinningShowUp = 0x00001000;
 uint32_t digitwinningShowDown = 0x01000000;
@@ -77,10 +78,12 @@ void loop() {
   
   
   //~~~led running~~~
-  
-   digit = ((digit << 1) | (digit >> 25)) & 0xFFFFFFC0; // 32 - 6 - 1 = 31 (from Q8 to Q0) 
+  if (digitDirection)
+    digit = ((digit >> 1) | (digit << 25)) & 0xFFFFFFC0; // 32 - 6- 1 = 31 (from Q0 to Q8)
+  else
+   digit = ((digit << 1) | (digit >> 25)) & 0xFFFFFFC0; // 32 - 6 - 1 = 31 (from Q8 to Q0)
   // Serial.println(digit);
-  //  digit = ((digit >> 1) | (digit << 25)) & 0xFFFFFFC0; // 32 - 6- 1 = 31 (from Q0 to Q8)
+
   updateLeds(digit | playerAscore | playerBscore);
   // Serial.print(digit);
   // Serial.print(" ");
@@ -90,8 +93,11 @@ void loop() {
 
   if(Aplayed)
   {
-    if (sessionWonA)
+    if (sessionWonA){
       AddScore(true);
+      changeLedDirection();
+      randomizeLedPosition();
+    }
     else
       lowerScore(true);
     
@@ -100,8 +106,11 @@ void loop() {
 
   if(Bplayed)
   {
-    if (sessionWonB)
+    if (sessionWonB){
       AddScore(false);
+      changeLedDirection();
+      randomizeLedPosition();
+    }
     else
       lowerScore(false);
     
@@ -125,6 +134,7 @@ void updateLeds(uint32_t digit)
 
 void AddScore(bool isPlayerA)
 {
+
   if(isPlayerA)
   {
     uint32_t playerAscoreNew = (playerAscore >> 1) | 0x00000004; 
@@ -315,12 +325,18 @@ void winningShow(uint32_t WinningPlayerLed)
 
 void restartGame()
 {
-  digit = 256; //we need to choose random
+  randomizeLedPosition(); 
   playerAscore = 0x00000000;
   playerBscore = 0x00000000;
   winningShowSpeed = 100;
   startupShow();
 }
+void changeLedDirection() {
+  digitDirection = !digitDirection;
+}
 
+void randomizeLedPosition() {
+  digit = 0x80000000 >> random(0,26);
+}
 
 
