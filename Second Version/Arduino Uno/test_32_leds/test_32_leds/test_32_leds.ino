@@ -318,6 +318,7 @@ void restartGame()
   digit = 256; //we need to choose random
   playerAscore = 0x00000000;
   playerBscore = 0x00000000;
+  winningShowSpeed = 100;
   startupShow();
 }
 
