@@ -1,3 +1,5 @@
+
+
 #define pinBuzzer 7
 int noteHz = 300;
 
@@ -18,14 +20,58 @@ int noteHz = 300;
 // #define noteA    880  // A5 (redefines noteA from 440)
 
 
-int winningSoundNotes[] = {
-    noteA, 
-    noteB, 
-    noteC,
+
+
+
+
+int* currentNotes;
+int* currentDurations;
+int currentSoundLength;
+
+
+
+int openingSoundNotes[] = {
+    noteB,
+    noteE,
+    noteSilence,
+    noteB,
+    noteE,
+    noteSilence,
+    noteB,
+    noteE,
+    noteSilence,
+    noteB,
+    noteE,
+    noteSilence,
+    noteB,
+    noteG
+    
+};
+int openingSoundDurations[] = {
+    2000,  // 1 -> 300 ms
+    2000,  // 2
+    4000,  // 3
+    2000,  // 1 -> 300 ms
+    2000,  // 2
+    4000,  // 3
+    2000,  // 1 -> 300 ms
+    2000,  // 2
+    4000,  // 3
+    2000,  // 1 -> 300 ms
+    2000,  // 2
+    7000,  // 3
+    2000,
+    6600
+};
+
+int winningPointSoundNotes[] = {
     noteB,
     noteC,
     noteD,
     noteC,
+    noteD,
+    noteE,
+    noteD,
     noteE,
     noteF,
     noteE,
@@ -38,7 +84,7 @@ int winningSoundNotes[] = {
 
     
 };
-int winningSoundDurations[] = {
+int winningPointSoundDurations[] = {
     2000,  // 1 -> 300 ms
     2000,  // 2
     4000,  // 3
@@ -57,6 +103,55 @@ int winningSoundDurations[] = {
     2000
 };
 
+
+int losingPointSoundNotes[] = {
+    noteG, 
+    noteF, 
+    noteE,
+    noteF,
+    noteE,
+    noteD,
+    noteE,
+    noteD,
+    noteC,
+    noteD,
+    noteC,
+    noteB,
+    noteC,
+    noteB,
+    noteA,
+    noteSilence,
+    noteA,
+    noteSilence,
+    noteA
+
+    
+};
+int losingPointSoundDurations[] = {
+    2000,  // 1 -> 300 ms
+    2000,  // 2
+    4000,  // 3
+    2000,  // 1 -> 300 ms
+    2000,  // 2
+    4000,  // 3
+    2000,  // 1 -> 300 ms
+    2000,  // 2
+    4000,  // 3
+    2000,  // 1 -> 300 ms
+    2000,  // 2
+    4000,  // 3
+    2000,  // 1 -> 300 ms
+    2000,  // 2
+    7000,  // 3
+    2000,
+    2000,
+    2000,
+    2000
+};
+
+
+
+
 // int winningSoundDurations[] = {
 //     4687,  // 1 -> 300 ms
 //     4687,  // 2
@@ -72,13 +167,24 @@ int winningSoundDurations[] = {
 //     2000
 // };
 
-int winningSoundIdx = 0;
-int winningSoundLength = 16;
+int currentSoundIdx = 0;
+int winningPointSoundLength = 16;
+int losingPointSoundLength = 16 ;
+int openingSoundLength = 14 ;
 void setup() {
 
 // tone(pinBuzzer, 440); // A4
 //   delay(1000);
-   playNote(300, 1);
+
+  //  playWinningPoint();
+  //  delay(10000);
+  //  playlosingPoint();
+  
+  for (int i = 0; i < openingSoundLength; i++) {
+    openingSoundDurations[i] = openingSoundDurations[i] * 2;
+  }
+
+  playOpening();
 }
 
 void loop() {
@@ -86,13 +192,29 @@ void loop() {
 
 }
 
-void playSound()
+void playOpening()
 {
-  
+    playSound(openingSoundNotes, openingSoundDurations,openingSoundLength);
 }
 
-void playNote(int noteHz2, int length)
+void playWinningPoint()
 {
+    playSound(winningPointSoundNotes, winningPointSoundDurations,winningPointSoundLength);
+}
+
+void playlosingPoint()
+{
+    playSound(losingPointSoundNotes, losingPointSoundDurations,losingPointSoundLength);
+}
+
+
+void playSound(int notesArr[], int durationsArr[], int arrLength)
+{
+  currentNotes = notesArr;
+  currentDurations= durationsArr;
+  currentSoundLength = arrLength;
+
+  currentSoundIdx=0;
   TCCR1A = 0;           // Init Timer1
   TCCR1B = 0;           // Init Timer1
   TCCR1B |= B00000101;  // Prescalar = 64
@@ -106,20 +228,22 @@ void playNote(int noteHz2, int length)
 
 ISR(TIMER1_COMPA_vect)
 {
-  if (winningSoundIdx == winningSoundLength)
+  TCNT1 = 0; // Timer Preloading with 0
+  if (currentSoundIdx == currentSoundLength)
   {
+    
     noTone(pinBuzzer);
     TIMSK1 &= B11111101;
   }
   else
   {
-    TCNT1 = 0; // Timer Preloading with 0
-    OCR1A = winningSoundDurations[winningSoundIdx];
-    if (winningSoundNotes[winningSoundIdx]==0)
+    
+    OCR1A = currentDurations[currentSoundIdx];
+    if (currentNotes[currentSoundIdx]==0)
       noTone(pinBuzzer);
     else
-      tone(pinBuzzer, winningSoundNotes[winningSoundIdx]); 
-    winningSoundIdx++;
+      tone(pinBuzzer, currentNotes[currentSoundIdx]); 
+    currentSoundIdx++;
   }
   
   

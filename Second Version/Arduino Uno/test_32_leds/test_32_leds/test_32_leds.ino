@@ -28,8 +28,115 @@
 #define pinSwitchA 2
 #define pinSwitchB 3
 
+#define pinBuzzer 7
+
 #define playerALed 0x80000000 //green leds
 #define playerBLed 0x00040000 //blue leds
+
+#define noteA    440  // A5
+#define noteAh   466  // A#5 / Bb5
+#define noteB    494  // B5
+#define noteC    523  // C5
+#define noteCh   554  // C#5 / Db5
+#define noteD    587  // D5
+#define noteDh   622  // D#5 / Eb5
+#define noteE    659  // E5
+#define noteF    698  // F5
+#define noteFh   740  // F#5 / Gb5
+#define noteG    784  // G5
+#define noteGh   831  // G#5 / Ab5
+#define noteSilence   0  // silence
+
+
+//~~~audio section~~~~~
+int* currentNotes;
+int* currentDurations;
+int currentSoundLength;
+
+int winningPointSoundNotes[] = {
+    noteB,
+    noteC,
+    noteD,
+    noteC,
+    noteD,
+    noteE,
+    noteD,
+    noteE,
+    noteF,
+    noteE,
+    noteF,
+    noteG,
+    noteSilence,
+    noteG,
+    noteSilence,
+    noteG
+
+    
+};
+int winningPointSoundDurations[] = {
+    2000,  // 1 -> 300 ms
+    2000,  // 2
+    4000,  // 3
+    2000,  // 1 -> 300 ms
+    2000,  // 2
+    4000,  // 3
+    2000,  // 1 -> 300 ms
+    2000,  // 2
+    4000,  // 3
+    2000,  // 1 -> 300 ms
+    2000,  // 2
+    7000,  // 3
+    2000,
+    2000,
+    2000,
+    2000
+};
+
+
+int losingPointSoundNotes[] = {
+    noteF,
+    noteE,
+    noteD,
+    noteE,
+    noteD,
+    noteC,
+    noteD,
+    noteC,
+    noteB,
+    noteC,
+    noteB,
+    noteA,
+    noteSilence,
+    noteA,
+    noteSilence,
+    noteA
+
+    
+};
+int losingPointSoundDurations[] = {
+    2000,  // 1 -> 300 ms
+    2000,  // 2
+    4000,  // 3
+    2000,  // 1 -> 300 ms
+    2000,  // 2
+    4000,  // 3
+    2000,  // 1 -> 300 ms
+    2000,  // 2
+    4000,  // 3
+    2000,  // 1 -> 300 ms
+    2000,  // 2
+    7000,  // 3
+    2000,
+    2000,
+    2000,
+    2000
+};
+
+
+int currentSoundIdx = 0;
+int winningPointSoundLength = 16;
+int losingPointSoundLength = 16 ;
+//~~~audio section END~~~~~
 
 uint32_t digit = 256; //turn on one led.    //32 bits from left to right the bits of the game, the right most 6 bits are the score
 bool digitDirection = true; //True - clockwise, Flase - counter clockwise
@@ -39,7 +146,7 @@ uint32_t digitwinningShowDown = 0x01000000;
 
 uint32_t playerAscore = 0x00000000;
 uint32_t playerBscore = 0x00000000;
-uint32_t gameSpeed = 100; //milis between each led 
+uint32_t gameSpeed = 50; //milis between each led 
 uint32_t startupShowSpeed = 300;
 uint32_t winningShowSpeed = 100;
 long AlastTimePressed = millis();
@@ -67,7 +174,7 @@ void setup() {
   Serial.begin(9600);
   attachInterrupt(digitalPinToInterrupt(pinSwitchA), switchAPressed, FALLING);
   attachInterrupt(digitalPinToInterrupt(pinSwitchB), switchBPressed, FALLING);
-   
+
   restartGame();
   // winningShow(playerALed);
   
@@ -94,12 +201,16 @@ void loop() {
   if(Aplayed)
   {
     if (sessionWonA){
+      playWinningPoint();
       AddScore(true);
       changeLedDirection();
       randomizeLedPosition();
     }
     else
+    {
+      playlosingPoint();
       lowerScore(true);
+    }
     
     Aplayed=false;
   }
@@ -107,12 +218,16 @@ void loop() {
   if(Bplayed)
   {
     if (sessionWonB){
+      playWinningPoint();
       AddScore(false);
       changeLedDirection();
       randomizeLedPosition();
     }
     else
+    {
+      playlosingPoint();
       lowerScore(false);
+    }
     
     Bplayed=false;
   }
@@ -275,6 +390,11 @@ void startupShow()
       updateLeds(~digitStartShow);
       delay(startupShowSpeed);
    }
+  //   //show buttons leds
+  //  updateLeds(0x00000000);
+  //  updateLeds(playerALed);
+  //  delay(20000);
+
 }  
 
 void winningShow(uint32_t WinningPlayerLed)
@@ -338,5 +458,59 @@ void changeLedDirection() {
 void randomizeLedPosition() {
   digit = 0x80000000 >> random(0,26);
 }
+
+
+
+void playWinningPoint()
+{
+    playSound(winningPointSoundNotes, winningPointSoundDurations,winningPointSoundLength);
+}
+
+void playlosingPoint()
+{
+    playSound(losingPointSoundNotes, losingPointSoundDurations,losingPointSoundLength);
+}
+
+
+void playSound(int notesArr[], int durationsArr[], int arrLength)
+{
+  currentNotes = notesArr;
+  currentDurations= durationsArr;
+  currentSoundLength = arrLength;
+
+  currentSoundIdx=0;
+  TCCR1A = 0;           // Init Timer1
+  TCCR1B = 0;           // Init Timer1
+  TCCR1B |= B00000101;  // Prescalar = 64
+  OCR1A = 25000;        // Timer CompareA Register
+  TIMSK1 |= B00000010;  // Enable Timer COMPA Interrupt
+  //restart clock
+  //attach internal intterupt - depend on length
+  //run clock
+  
+}
+
+ISR(TIMER1_COMPA_vect)
+{
+  TCNT1 = 0; // Timer Preloading with 0
+  if (currentSoundIdx == currentSoundLength)
+  {
+    noTone(pinBuzzer);
+    TIMSK1 &= B11111101;
+  }
+  else
+  {
+    
+    OCR1A = currentDurations[currentSoundIdx];
+    if (currentNotes[currentSoundIdx]==0)
+      noTone(pinBuzzer);
+    else
+      tone(pinBuzzer, currentNotes[currentSoundIdx]); 
+    currentSoundIdx++;
+  }
+  
+  
+}
+
 
 
